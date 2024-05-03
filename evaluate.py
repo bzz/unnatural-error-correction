@@ -2,6 +2,7 @@ import argparse
 import os
 from utils import *
 from process import *
+from tqdm import tqdm
 
 
 def main():
@@ -27,10 +28,12 @@ def main():
         filename = args.output_dir + "/" + args.task + "/" + args.dataset + "/" + args.method + "/" + args.scramble + "/" + args.model
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
+    client = OpenAI(api_key=args.api_key)
+
     if args.task == "scrambled_rec":
         with open(filename, "w") as wp:
             dis_list = []
-            for i, data in enumerate(dataloader):
+            for i, data in enumerate(tqdm(dataloader)):
                 x, y = data
                 output_line = {}
                 output_line["scrambled"] = x
@@ -93,7 +96,7 @@ def main():
             correct_list = []
             total = 0
 
-            for i, data in enumerate(dataloader):
+            for i, data in enumerate(tqdm(dataloader)):
                 
                 if len(data) == 3:
                     x, y, choice = data
@@ -156,13 +159,14 @@ def main():
                     wp.write(output_json + "\n")
 
                 for j in range(len(x)):
-                    print("*"*50)
-                    print("No.{}".format(i * args.batch_size + j + 1))
-                    print("#Input:\n" + x[j])
-                    print("#Output:\n" + pred_lst[j])
-                    print("#Pred:\n{}".format(pred_lst_clean[j]))
-                    print("#GT:\n" + y[j])
-                    print("*"*50)
+                    if args.verbose or i % args.print_every_k == 0:
+                        print("*"*50)
+                        print("No.{}".format(i * args.batch_size + j + 1))
+                        print("#Input:\n" + x[j])
+                        print("#Output:\n" + pred_lst[j])
+                        print("#Pred:\n{}".format(pred_lst_clean[j]))
+                        print("#GT:\n" + y[j])
+                        print("*"*50)
 
                     correct = compare_answer(pred_lst_clean[j], y[j])
                     correct_list.append(correct)
@@ -172,7 +176,9 @@ def main():
                     break
 
             accuracy = (sum(correct_list) * 1.0 / total) * 100
-            print("Accuracy : {}".format(accuracy))
+            from statsmodels.stats.proportion import proportion_confint
+            lower, upper = proportion_confint(88, 100, 0.05)
+            print(f"Accuracy : {accuracy:.1f} ({lower:.1f}..{upper:.1f})")
             
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -234,7 +240,13 @@ def parse_arguments():
     parser.add_argument(
         "--temperature", type=float, default=0.0
         )
-
+    parser.add_argument(
+        "--verbose", action="store_true"
+        )
+    parser.add_argument(
+        "--print_every_k", type=int, default=1000
+        )
+    
     args = parser.parse_args()
 
     if args.dataset in ["scrambled_realtimeQA"]:

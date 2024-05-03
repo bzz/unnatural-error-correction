@@ -3,7 +3,8 @@ Adapted from https://github.com/kojima-takeshi188/zero_shot_cot
 """
 
 from torch.utils.data import Dataset
-import openai
+from openai import OpenAI
+
 import multiprocessing
 import json
 import torch
@@ -26,7 +27,7 @@ def fix_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
-    
+
 def print_now(return_flag=0):
     t_delta = datetime.timedelta(hours=9)
     JST = datetime.timezone(t_delta, "JST")
@@ -44,7 +45,7 @@ def decoder_for_hf(args, input, max_length, n, t, model, tokenizer):
         tokenizer.add_special_tokens({"pad_token":"<pad>"})
         model.resize_token_embeddings(len(tokenizer))
         inputs = tokenizer(input, return_tensors="pt", padding=True).to("cuda")
-        
+
         if t == 0:
             output = model.generate(
                 inputs.input_ids,
@@ -88,9 +89,9 @@ def decoder_for_hf(args, input, max_length, n, t, model, tokenizer):
             # prevent repetition
             stop_words = "Scrambled sentence:"
             stop_ids = tokenizer.encode(stop_words)
-        
+
             inputs = tokenizer(input, return_tensors="pt", padding=True).to("cuda")
-            
+
             if t == 0:
                 output = model.generate(
                     inputs.input_ids,
@@ -118,7 +119,7 @@ def decoder_for_hf(args, input, max_length, n, t, model, tokenizer):
                     )
 
             result = tokenizer.batch_decode(output.sequences, skip_special_tokens=True)
-        
+
         else:
             inputs = tokenizer(input, return_tensors="pt", padding=True).to("cuda")
 
@@ -147,11 +148,11 @@ def decoder_for_hf(args, input, max_length, n, t, model, tokenizer):
                     )
 
         result = tokenizer.batch_decode(output.sequences, skip_special_tokens=True)
-    
+
     elif args.model in ["byt5-xxl"]:
-        
+
         inputs = tokenizer(input, return_tensors="pt", padding=True).to("cuda")
-        
+
         if t == 0:
             output = model.generate(
                 inputs.input_ids,
@@ -175,15 +176,15 @@ def decoder_for_hf(args, input, max_length, n, t, model, tokenizer):
                 return_dict_in_generate=True,
                 attention_mask=inputs.attention_mask,
                 )
-        
+
         result = tokenizer.batch_decode(output.sequences, skip_special_tokens=True)
 
     elif args.model in ["falcon-40b", "falcon-40b-instruct", "falcon-7b", "falcon-7b-instruct"]:
         tokenizer.pad_token = tokenizer.eos_token
         model.config.pad_token_id = model.config.eos_token_id
-                
+
         inputs = tokenizer(input, return_tensors="pt", padding=True).to("cuda")
-        
+
         if t == 0:
             output = model.generate(
                 inputs.input_ids,
@@ -212,9 +213,9 @@ def decoder_for_hf(args, input, max_length, n, t, model, tokenizer):
 
     elif args.model in ["falcon-180B", "falcon-180B-chat"]:
         tokenizer.pad_token = tokenizer.eos_token
-                
+
         inputs = tokenizer(input, return_tensors="pt", padding=True).to("cuda")
-        
+
         if t == 0:
             output = model.generate(
                 inputs.input_ids,
@@ -242,9 +243,9 @@ def decoder_for_hf(args, input, max_length, n, t, model, tokenizer):
         result = [result[i][prompt_length[i]:] for i in range(len(result))]
 
     elif args.model in ["mpt-30b-instruct"]:
-        
+
         inputs = tokenizer(input, return_tensors="pt", padding=True).to("cuda")
-        
+
         if t == 0:
             output = model.generate(
                 inputs.input_ids,
@@ -272,12 +273,12 @@ def decoder_for_hf(args, input, max_length, n, t, model, tokenizer):
         prompt_length = [len(tokenizer.decode(i, skip_special_tokens=True,)) for i in inputs.input_ids]
         result = tokenizer.batch_decode(output.sequences, skip_special_tokens=True)
         result = [result[i][prompt_length[i]:] for i in range(len(result))]
-    
+
     elif args.model in ["mpt-30b"]:
         tokenizer.pad_token = tokenizer.eos_token
         model.config.pad_token_id = model.config.eos_token_id
         inputs = tokenizer(input, return_tensors="pt", padding=True).to("cuda")
-        
+
         if t == 0:
             output = model.generate(
                 inputs.input_ids,
@@ -305,48 +306,43 @@ def decoder_for_hf(args, input, max_length, n, t, model, tokenizer):
         prompt_length = [len(tokenizer.decode(i, skip_special_tokens=True,)) for i in inputs.input_ids]
         result = tokenizer.batch_decode(output.sequences, skip_special_tokens=True)
         result = [result[i][prompt_length[i]:] for i in range(len(result))]
-    
+
     return result
 
-def decoder_for_openai(args, input, max_length, n, t):
-    
-    openai.api_key = args.api_key
-    
+def decoder_for_openai(args, input, max_length, n, t, client=None):
     output = []
     for i in input:
         if args.model in ["text-davinci-003"]:
-            response = openai.Completion.create(
+            response = client.completions.create(
                 engine=args.model,
                 prompt=i,
                 max_tokens=max_length,
                 temperature=t,
                 stop=None,
                 n=n
-                )
+            )
 
             if n == 1:
-                output.append(response["choices"][0]["text"])
+                output.append(response.choices[0].text)
             else:
                 output.append(response)
-                
+
         else:
-            response = openai.ChatCompletion.create(
-                model=args.model,
-                messages=[
-                    {"role": "user", "content": i}
-                ],
-                max_tokens=max_length,
-                temperature=t,
-                stop=None,
-                n=n
-            )
+            response = client.chat.completions.create(model=args.model,
+            messages=[
+                {"role": "user", "content": i}
+            ],
+            max_tokens=max_length,
+            temperature=t,
+            stop=None,
+            n=n)
             if n == 1:
-                output.append(response["choices"][0]["message"]["content"])
+                output.append(response.choices[0].message.content)
             else:
                 output.append(response)
-        
-        
-        
+
+
+
     return output
 
 class Decoder():
@@ -381,7 +377,10 @@ class Decoder():
             else:
                 self.model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype="auto")
             self.tokenizer = AutoTokenizer.from_pretrained(model_id, padding_side="left")
- 
+        elif "gpt-4" in args.model or "gpt-3.5" in args.model or "davinci" in args.model:
+            self.model = OpenAI(api_key=args.api_key)
+
+
     def decode(self, args, input, max_length, n, t):
         if args.model in ["falcon-180B", "falcon-180B-chat", 
                           "falcon-40b", "falcon-40b-instruct", 
@@ -392,7 +391,7 @@ class Decoder():
                           "ul2", "flan-ul2", "flan-t5-xxl", "byt5-xxl"]:
             response = decoder_for_hf(args, input, max_length, n, t, self.model, self.tokenizer)
         elif "gpt-4" in args.model or "gpt-3.5" in args.model or "davinci" in args.model:
-            response = decoder_for_openai(args, input, max_length, n, t)
+            response = decoder_for_openai(args, input, max_length, n, t, self.model)
         return response
 
 def data_reader(args):
@@ -446,7 +445,7 @@ def data_reader(args):
                                         "\nAnswer: " + "Based on the evidence, among A through D, the answer is")
                     ground_truth.append(json.loads(line)["answer"])
                     choice.append(json.loads(line)["choice"])
-              
+
     elif args.dataset in ["scrambled_DREAM_test", "scrambled_DREAM_dev"]:
         if args.task == "scrambled_qa":
             with open(args.dataset_path) as f:
@@ -475,7 +474,7 @@ def data_reader(args):
                                         "\nAnswer: " + "Based on the dialogue, among A through C, the answer is")
                     ground_truth.append(json.loads(line)["answer"])
                     choice.append(json.loads(line)["choice"])
-                    
+
     elif args.dataset in ["scrambled_AQuA"]:
         if args.task == "scrambled_qa":
             with open(args.dataset_path) as f:
@@ -497,13 +496,13 @@ def data_reader(args):
                                         "\nAnswer:")
                     ground_truth.append(json.loads(line)["answer"])
                     choice.append(json.loads(line)["choice"])
-            
+
     else:
         raise ValueError("dataset is not properly defined ...")
-    
+
     print("dataset: {}".format(args.dataset))
     print("data_size: {}".format(len(input_prompt)))
-    
+
     if args.task == "scrambled_rec":
         return input_prompt, ground_truth
     elif args.task == "scrambled_qa":
@@ -518,10 +517,10 @@ class MyDataset(Dataset):
         elif args.task == "scrambled_qa":
             self.input_prompt, self.ground_truth, self.choice = data_reader(args)
             self.len = len(self.input_prompt)
-        
+
     def __len__(self):
         return self.len
-    
+
     def __getitem__(self, index):
         try:
             return self.input_prompt[index], self.ground_truth[index], self.choice[index]
@@ -540,19 +539,19 @@ def setup_data_loader(args):
         random.seed(worker_seed)
     g = torch.Generator()
     g.manual_seed(worker_seed)
-    
+
     dataloader_num_workers = multiprocessing.cpu_count()
     dataloader_num_workers = min(dataloader_num_workers, args.max_num_worker)
-    
+
     dataset = MyDataset(args)
-    
+
     if len(dataset[0]) == 3:
         def collate_fn(items):
             x = [i[0] for i in items]
             y = [i[1] for i in items]
             z = [i[2] for i in items]
             return x, y, z
-        
+
         dataloader = torch.utils.data.DataLoader(dataset,
                     shuffle=False,
                     batch_size=args.batch_size,
@@ -607,7 +606,7 @@ def answer_cleansing(args, pred, choice=None):
             if "Scrambled sentence:" in pred:
                 pred = pred.split("Scrambled sentence:")[0]
             pred = pred.strip()
-            
+
     elif args.dataset in ["scrambled_DREAM_test", "scrambled_DREAM_dev"]:
         if args.task == "scrambled_qa":
             # remove repitition
@@ -643,7 +642,7 @@ def answer_cleansing(args, pred, choice=None):
                 pred = ""
     else:
         raise ValueError("dataset is not properly defined ...")
-    
+
     return pred
 
 def edit_distance(s1, s2):
