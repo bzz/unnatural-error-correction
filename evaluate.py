@@ -177,8 +177,8 @@ def main():
 
             accuracy = (sum(correct_list) * 1.0 / total) * 100
             from statsmodels.stats.proportion import proportion_confint
-            lower, upper = proportion_confint(88, 100, 0.05)
-            print(f"Accuracy : {accuracy:.1f} ({lower:.1f}..{upper:.1f})")
+            lower, upper = proportion_confint(sum(correct_list), total, 0.05)
+            print(f"Accuracy : {accuracy:.1f} ({lower:.2f}..{upper:.2f})")
             
 def parse_arguments():
     parser = argparse.ArgumentParser()
