@@ -1,20 +1,19 @@
 """
 Adapted from https://github.com/kojima-takeshi188/zero_shot_cot
 """
-
-from torch.utils.data import Dataset
-from openai import OpenAI
-
-import multiprocessing
-import json
-import torch
-import random
-import torch
+import os
 import datetime
 import json
-from transformers import AutoTokenizer, AutoModelForCausalLM , T5ForConditionalGeneration, AutoTokenizer, StoppingCriteria, StoppingCriteriaList
 import re
+import multiprocessing
+import json
+import random
+
 import numpy as np
+from openai import OpenAI
+import torch
+from torch.utils.data import Dataset
+from transformers import AutoTokenizer, AutoModelForCausalLM , T5ForConditionalGeneration, AutoTokenizer, StoppingCriteria, StoppingCriteriaList
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 from transformers import BitsAndBytesConfig
 
