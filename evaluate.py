@@ -1,6 +1,6 @@
 import argparse
 import os
-from utils import *
+from utils import Decoder, fix_seed, print_now, setup_data_loader, compare_answer, answer_cleansing, edit_distance
 from process import *
 from tqdm import tqdm
 
@@ -27,8 +27,6 @@ def main():
     else:
         filename = args.output_dir + "/" + args.task + "/" + args.dataset + "/" + args.method + "/" + args.scramble + "/" + args.model
     os.makedirs(os.path.dirname(filename), exist_ok=True)
-
-    client = OpenAI(api_key=args.api_key)
 
     if args.task == "scrambled_rec":
         with open(filename, "w") as wp:

@@ -2,3 +2,4 @@ openai==1.25.1
 torch==2.2.2
 transformers==4.40.1
 pandas==2.2.2
+statsmodels==0.14.2
