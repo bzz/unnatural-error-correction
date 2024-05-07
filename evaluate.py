@@ -242,7 +242,7 @@ def parse_arguments():
         "--temperature", type=float, default=0.0
         )
     parser.add_argument(
-        "--verbose", action="store_true"
+        "-v", "--verbose", action="store_true"
         )
     parser.add_argument(
         "--print_every_k", type=int, default=1000
@@ -266,6 +266,9 @@ def parse_arguments():
             args.dataset_path = "dataset/scrambled/dream/dev.json"
     else:
         raise ValueError("dataset is not properly defined ...")
+
+    if args.api_key is None:
+        args.api_key = os.getenv("OPENAI_API_KEY")
 
     return args
 
