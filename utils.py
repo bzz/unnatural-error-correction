@@ -379,6 +379,9 @@ class Decoder():
         elif "gpt-4" in args.model or "gpt-3.5" in args.model or "davinci" in args.model:
             self.model = OpenAI(api_key=args.api_key)
 
+        elif args.model in ["rnd"]:
+            random.seed(args.random_seed)
+            self.model = random.choice
 
     def decode(self, args, input, max_length, n, t):
         if args.model in ["falcon-180B", "falcon-180B-chat", 
@@ -391,7 +394,8 @@ class Decoder():
             response = decoder_for_hf(args, input, max_length, n, t, self.model, self.tokenizer)
         elif "gpt-4" in args.model or "gpt-3.5" in args.model or "davinci" in args.model:
             response = decoder_for_openai(args, input, max_length, n, t, self.model)
-        return response
+        elif args.model in ["rnd"]:
+            response = self.model(['A', 'B', 'C', 'D'])
 
 def data_reader(args):
 

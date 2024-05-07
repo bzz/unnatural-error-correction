@@ -211,8 +211,9 @@ def parse_arguments():
                  "Llama-2-7b-hf", "Llama-2-7b-chat-hf",
                  "mpt-30b", "mpt-30b-instruct",
                  "ul2", "flan-ul2", "flan-t5-xxl", "byt5-xxl",
+                 "gpt-3.5-turbo-0125", "rnd"
                  ]
-                 )
+    )
 
     parser.add_argument(
         "--method", type=str, default="zero-shot",
