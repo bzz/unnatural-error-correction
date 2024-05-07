@@ -185,7 +185,9 @@ def parse_arguments():
 
     parser.add_argument("--task", type=str, default="scrambled_rec", choices=["scrambled_qa", "scrambled_rec"])
 
-    parser.add_argument("--scramble", type=str, default="random_100%", choices=["original", "random_20%", "random_50%", "random_100%", "keepfirst", "keepfirstlast", "substituted"])
+    parser.add_argument("--scramble", type=str, default="random_100%",
+                        choices=["original", "random_20%", "random_50%", "random_100%", "keepfirst", "keepfirstlast", "substituted", "empty"]
+    )
 
     parser.add_argument("--api_key", type=str, default=None)
 

@@ -485,6 +485,8 @@ def data_reader(args):
                         evidence = json.loads(line)["evidence_scrambled_keepfirstlast"]
                     elif args.scramble == "substituted":
                         evidence = json.loads(line)["evidence_substituted"]
+                    elif args.scramble == "empty":
+                        evidence = ""
 
                     input_prompt.append("Question: " + json.loads(line)["question"] +
                                         "\nChoices: " + "".join(["(" + ["A", "B", "C", "D"][i] + ")" + json.loads(line)["choice"][i] + " " for i in range(len(json.loads(line)["choice"]))]).strip() +
