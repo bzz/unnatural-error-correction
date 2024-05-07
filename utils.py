@@ -530,16 +530,23 @@ class MyDataset(Dataset):
         except:
             return self.input_prompt[index], self.ground_truth[index]
 
+def collate_fn(items):
+    x = [i[0] for i in items]
+    y = [i[1] for i in items]
+    z = [i[2] for i in items]
+    return x, y, z
+
+
+worker_seed = torch.initial_seed() % 2**32
+def seed_worker(worker_id):
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 def setup_data_loader(args):
 
     # fix randomness of dataloader to ensure reproducibility
     # https://pytorch.org/docs/stable/notes/randomness.html
     fix_seed(args.random_seed)
-    worker_seed = torch.initial_seed() % 2**32
-    def seed_worker(worker_id):
-        np.random.seed(worker_seed)
-        random.seed(worker_seed)
     g = torch.Generator()
     g.manual_seed(worker_seed)
 
@@ -549,12 +556,6 @@ def setup_data_loader(args):
     dataset = MyDataset(args)
 
     if len(dataset[0]) == 3:
-        def collate_fn(items):
-            x = [i[0] for i in items]
-            y = [i[1] for i in items]
-            z = [i[2] for i in items]
-            return x, y, z
-
         dataloader = torch.utils.data.DataLoader(dataset,
                     shuffle=False,
                     batch_size=args.batch_size,
