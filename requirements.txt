@@ -3,3 +3,4 @@ torch==2.2.2
 transformers==4.40.1
 pandas==2.2.2
 statsmodels==0.14.2
+onetwo @ git+https://github.com/google-deepmind/onetwo@19c6a8c8ed1f1286122c77ce3745b07863d1b1bc

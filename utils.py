@@ -17,6 +17,10 @@ from transformers import AutoTokenizer, AutoModelForCausalLM , T5ForConditionalG
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 from transformers import BitsAndBytesConfig
 
+from onetwo import ot
+from onetwo.builtins import llm
+from onetwo.core import content
+
 def fix_seed(seed):
     # random
     random.seed(seed)
@@ -327,14 +331,16 @@ def decoder_for_openai(args, input, max_length, n, t, client=None):
                 output.append(response)
 
         else:
-            response = client.chat.completions.create(model=args.model,
-            messages=[
-                {"role": "user", "content": i}
-            ],
-            max_tokens=max_length,
-            temperature=t,
-            stop=None,
-            n=n)
+            response = client.chat.completions.create(
+                model=args.model,
+                messages=[
+                    {"role": "user", "content": i}
+                ],
+                max_tokens=max_length,
+                temperature=t,
+                stop=None,
+                n=n
+            )
             if n == 1:
                 output.append(response.choices[0].message.content)
             else:
@@ -383,6 +389,29 @@ class Decoder():
             random.seed(args.random_seed)
             self.model = random.choice
 
+        # Caching model using https://github.com/google-deepmind/onetwo
+        elif args.model.startswith("ot-"):
+            from onetwo.backends import openai_api
+            model_name = "gpt-3.5-turbo-0125"
+            cache_filename = f'./{model_name}_{args.scramble}.json'
+
+            # Create the backend that we selected above and provide a cache filename.
+            backend = openai_api.OpenAIAPI( # gemini_api.GeminiAPI(
+                api_key=args.api_key,
+                model_name=model_name,
+                temperature=args.temperature,
+                cache_filename=cache_filename,
+            )
+            backend.register()
+
+            if os.path.isfile(cache_filename):
+                print(f'Loading cache from {cache_filename}')
+                backend.load_cache()
+            else:
+                print(f'Cache file does not exist: {cache_filename}')
+            self.model = backend
+
+
     def decode(self, args, input, max_length, n, t):
         if args.model in ["falcon-180B", "falcon-180B-chat", 
                           "falcon-40b", "falcon-40b-instruct", 
@@ -396,6 +425,21 @@ class Decoder():
             response = decoder_for_openai(args, input, max_length, n, t, self.model)
         elif args.model in ["rnd"]:
             response = self.model(['A', 'B', 'C', 'D'])
+        elif args.model.startswith("ot-"):
+            response = []
+            for i in input:
+                output = ot.run(
+                    llm.chat(
+                        [content.Message(
+                          role=content.PredefinedRole.USER,
+                          content=i,
+                        )],
+                        max_tokens=max_length, temperature=t),
+                )
+                # print(output)
+                response.append(output)
+            self.model.save_cache(overwrite=True)
+        return response
 
 def data_reader(args):
 
