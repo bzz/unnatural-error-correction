@@ -81,15 +81,7 @@ def main():
         evidence["original"][262] = evidence["original"][262].replace("..", ". ")
         evidence["original"] = [i + "." if i[-1] != "." else i for i in evidence["original"]]
         
-        scrambled_sentence = evidence["original"]
-        scrambled_id = [[] for _ in range(len(scrambled_sentence))]
-        # randomly scramble (stepwise, 1 step = 10%)
-        for j in range(10):
-            random.seed(args.random_seed)
-            scrambled = [scramble_sentence_percent_step(data, (j+1)*0.1, scrambled_id[i]) for i, data in enumerate(scrambled_sentence)]
-            scrambled_id = [i[1] for i in scrambled]
-            scrambled_sentence = [i[0] for i in scrambled]
-            evidence["scrambled_{}%".format((j+1)*10)] = scrambled_sentence
+        scramble_n_steps(args.random_seed, evidence)
 
         random.seed(args.random_seed)
         evidence["scrambled_keepfirst"] = [scramble_sentence_keepfirst(i) for i in evidence["original"]]
@@ -337,6 +329,22 @@ def main():
                 line["question_scrambled_100%"] = question["scrambled_100%"][j]
                 output_json = json.dumps(line)
                 wp.write(output_json + "\n")
+
+def scramble_n_steps(random_seed, evidence, n=10):
+    """
+    Scrambles the original evidence sentence in n steps, each step representing 10% scrambling.
+    """
+    scrambled_sentence = evidence["original"]
+    scrambled_id = [[] for _ in range(len(scrambled_sentence))]
+
+    # randomly scramble (stepwise, 1 step = 10%)
+    for j in range(n):
+        random.seed(random_seed)
+        scrambled = [scramble_sentence_percent_step(data, (j+1)*0.1, scrambled_id[i]) for i, data in enumerate(scrambled_sentence)]
+        # scrambled_sentence, scrambled_sentence_id = zip(*scrambled)
+        scrambled_id = [i[1] for i in scrambled]
+        scrambled_sentence = [i[0] for i in scrambled]
+        evidence["scrambled_{}%".format((j+1)*10)] = scrambled_sentence
 
 def parse_arguments():
     parser = argparse.ArgumentParser()

@@ -102,6 +102,10 @@ def scramble_word_keepfirstlast(word):
         return "".join(result)
 
 def substitute_word(word):
+    """
+    Substitutes each alphabetic character in the given word with another random alphabetic character,
+    excluding the original. Non-alphabetic characters are left unchanged.
+    """
     letters = [c for c in word if c.isalpha()]
     if len(letters) <= 1:
         return word
@@ -131,6 +135,9 @@ def scramble_sentence_percent(sentence, percent):
     return "\n".join(" ".join(line.split()) for line in "".join(scrambled_words).splitlines())
 
 def substitute_sentence_percent(sentence, percent):
+    """
+    Substitutes a percentage of words in a sentence with randomly generated words.
+    """
     words = re.split("(\W)", sentence)
     words_id = []
     for i in list(range(len(words))):
@@ -153,22 +160,34 @@ def scramble_sentence_keepfirstlast(sentence):
     scrambled_words = [scramble_word_keepfirstlast(word) for word in words]
     return "\n".join(" ".join(line.split()) for line in "".join(scrambled_words).splitlines())
 
-# scramble the sentence stepwise (e.g., 20% scrambled sentence = 10% scrambled sentence + another 10% scrambled words)
-def scramble_sentence_percent_step(sentence, percent, scrambled_words_id, rate=0.1):
+def scramble_sentence_percent_step(sentence, percent, scrambled_word_ids, rate=0.1):
+    """
+    Scrambles a given percentage of words in a sentence.
+    Does that stepwise e.g., 20% scrambled sentence = 10% scrambled sentence + another 10% scrambled words.
+
+    Args:
+        sentence (str): The input sentence to be scrambled.
+        percent (float): The percentage of words to be scrambled.
+        scrambled_words_id (list): The list of indices of previously scrambled words.
+        rate (float, optional): The rate at which words are selected for scrambling. Defaults to 0.1.
+
+    Returns:
+        tuple: containing the scrambled sentence and the updated list of scrambled word indices.
+    """
     step = round(percent / rate)
     words = re.split("(\W)", sentence)
-    words_id = []
+    vocab = []
     for i in list(range(len(words))):
         letters = [c for c in words[i] if c.isalpha()]
         if len(letters) > 1:
-            words_id.append(i)
-    step_len = len(words_id)*rate
-    words_id = sorted(list(set(words_id) - set(scrambled_words_id)))
+            vocab.append(i)
+    step_len = len(vocab)*rate
+    non_scramble_word_ids = sorted(list(set(vocab) - set(scrambled_word_ids)))
     scrambled_words = words
-    words_id_slc = random.sample(words_id, k=round(step_len*(step))-round(step_len*(step-1)))
-    for i in words_id_slc:
+    word_ids_to_scramble = random.sample(non_scramble_word_ids, k=round(step_len*(step))-round(step_len*(step-1)))
+    for i in word_ids_to_scramble:
         scrambled_words[i] = scramble_word(words[i])
-    return "\n".join(" ".join(line.split()) for line in "".join(scrambled_words).splitlines()), (scrambled_words_id + words_id_slc)
+    return "\n".join(" ".join(line.split()) for line in "".join(scrambled_words).splitlines()), (scrambled_word_ids + word_ids_to_scramble)
 
 def generate_demo_rec(samples, method, random_seed):
     random.seed(random_seed)
