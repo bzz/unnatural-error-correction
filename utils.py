@@ -393,7 +393,11 @@ class Decoder():
         elif args.model.startswith("ot-"):
             from onetwo.backends import openai_api
             model_name = "gpt-3.5-turbo-0125"
-            cache_filename = f'./{model_name}_{args.scramble}.json'
+            swap = f'_word-swap_{int(args.word_swap*100)}%' if args.word_swap != 0 else ""
+            # whitespace = f'_whitespace_{int(args.whitespace*100)}%' if args.whitespace != 0 else ""
+            whitespace = ""
+            extras = f"{swap}{whitespace}"
+            cache_filename = f"./{model_name}_{args.scramble}{extras}.json"
 
             # Create the backend that we selected above and provide a cache filename.
             backend = openai_api.OpenAIAPI( # gemini_api.GeminiAPI(
@@ -441,6 +445,43 @@ class Decoder():
             self.model.save_cache(overwrite=True)
         return response
 
+def swap_words(sentence, probability):
+    """
+    Swaps a percentage of words in a given sentence.
+
+    Args:
+        sentence (str): The input sentence to swap words in.
+        probability (float): The probability of swapping each word.
+
+    Returns:
+        str: The sentence with a percentage of words swapped.
+    """
+    words = re.split("(\W)", sentence)
+    # print(words)
+    vocab = []
+    for idx in list(range(len(words))):
+        letters = [c for c in words[idx] if c.isalpha()]
+        if len(letters) > 1:
+            vocab.append(idx)
+
+    k = round(len(vocab)*probability)
+    # print(f"swapping {k=} of {len(vocab)}")
+    if k == 0:
+        return sentence
+    swapped = set()
+
+    while len(swapped) <= k:
+        swapable = sorted(list(set(vocab)-swapped))
+        if len(swapable) < 2:
+            break
+        to_swap = random.sample(swapable, 2) # [i for i in range(len(words)) if i not in swapped]
+        # print(f"swap {to_swap=}")
+        words[to_swap[0]], words[to_swap[1]] = words[to_swap[1]], words[to_swap[0]]
+        swapped.update(to_swap)
+
+    return "\n".join(" ".join(line.split()) for line in "".join(words).splitlines())
+
+
 def data_reader(args):
 
     questions = []
@@ -487,6 +528,10 @@ def data_reader(args):
                         evidence = json.loads(line)["evidence_substituted"]
                     elif args.scramble == "empty":
                         evidence = ""
+
+                    if args.word_swap != 0:
+                        # swap N% of words
+                        evidence = swap_words(evidence, args.word_swap)
 
                     input_prompt.append("Question: " + json.loads(line)["question"] +
                                         "\nChoices: " + "".join(["(" + ["A", "B", "C", "D"][i] + ")" + json.loads(line)["choice"][i] + " " for i in range(len(json.loads(line)["choice"]))]).strip() +

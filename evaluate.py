@@ -32,6 +32,8 @@ def main():
         print("demo_scramble: " + args.demo_question_scramble_rate)
     print("task: " + args.task)
     print("scramble: " + args.scramble)
+    if args.word_swap > 0:
+        print(f"word_swap: {args.word_swap*100}%")
     print_now()
 
     if args.method == "few-shot-cot":
@@ -203,6 +205,8 @@ def parse_arguments():
     parser.add_argument("--scramble", type=str, default="random_100%",
                         choices=["original", "random_20%", "random_50%", "random_100%", "keepfirst", "keepfirstlast", "substituted", "empty"]
     )
+
+    parser.add_argument("--word_swap", type=float, default=0.0)
 
     parser.add_argument("--api_key", type=str, default=None)
 
