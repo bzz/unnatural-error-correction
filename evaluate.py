@@ -4,6 +4,18 @@ from utils import Decoder, fix_seed, print_now, setup_data_loader, compare_answe
 from process import *
 from tqdm import tqdm
 
+def bootstrap_ci(sample, n_iterations=1000, alpha = 0.05):
+    """ Bootstrap to calculate confidence interval"""
+    # from sklearn.metrics import accuracy_score
+    # accuracy = accuracy_score(correct_list, sample)
+    stats = list()
+    for i in range(n_iterations):
+        resample = np.random.choice(sample, size=len(sample), replace=True)
+        # accuracy = sum(sample == resample) / len(sample) # nasty bug :/
+        accuracy = sum(resample) / len(sample)
+        stats.append(accuracy)
+    lower, upper = np.percentile(stats, [alpha/2*100, (1-alpha/2)*100])
+    return np.array(stats).mean()*100, lower, upper
 
 def main():
     args = parse_arguments()
@@ -175,9 +187,12 @@ def main():
 
             accuracy = (sum(correct_list) * 1.0 / total) * 100
             from statsmodels.stats.proportion import proportion_confint
-            lower, upper = proportion_confint(sum(correct_list), total, 0.05)
+            lower, upper = proportion_confint(sum(correct_list), total, 0.05, method='jeffreys')
+            assert len(correct_list) == total
             print(f"Accuracy : {accuracy:.1f} ({lower:.2f}..{upper:.2f})")
-            
+            print("Accuracy2: {:.1f} ({:.2f}..{:.2f})".format(*bootstrap_ci(correct_list)))
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
