@@ -8,6 +8,7 @@ import re
 import multiprocessing
 import json
 import random
+import string
 
 import numpy as np
 from openai import OpenAI
@@ -395,8 +396,9 @@ class Decoder():
             model_name = "gpt-3.5-turbo-0125"
             swap = f'_word-swap_{int(args.word_swap*100)}%' if args.word_swap != 0 else ""
             # whitespace = f'_whitespace_{int(args.whitespace*100)}%' if args.whitespace != 0 else ""
-            whitespace = ""
-            extras = f"{swap}{whitespace}"
+            whitespace = f'_whitespace-move_{int(args.whitespace_move*100)}%' if args.whitespace_move != 0 else ""
+            rnd = f'_rnd-str' if args.random_str != 0 else ""
+            extras = f"{swap}{whitespace}{rnd}"
             cache_filename = f"./{model_name}_{args.scramble}{extras}.json"
 
             # Create the backend that we selected above and provide a cache filename.
@@ -404,6 +406,8 @@ class Decoder():
                 api_key=args.api_key,
                 model_name=model_name,
                 temperature=args.temperature,
+                max_qps=20,
+                batch_size=args.batch_size,
                 cache_filename=cache_filename,
             )
             backend.register()
@@ -416,7 +420,7 @@ class Decoder():
             self.model = backend
 
 
-    def decode(self, args, input, max_length, n, t):
+    def decode(self, args, input_ids, max_length, n, t):
         if args.model in ["falcon-180B", "falcon-180B-chat", 
                           "falcon-40b", "falcon-40b-instruct", 
                           "falcon-7b", "falcon-7b-instruct", 
@@ -424,15 +428,17 @@ class Decoder():
                           "Llama-2-70b-hf", "Llama-2-13b-hf", "Llama-2-7b-hf", 
                           "Llama-2-70b-chat-hf", "Llama-2-13b-chat-hf", "Llama-2-7b-chat-hf",
                           "ul2", "flan-ul2", "flan-t5-xxl", "byt5-xxl"]:
-            response = decoder_for_hf(args, input, max_length, n, t, self.model, self.tokenizer)
+            response = decoder_for_hf(args, input_ids, max_length, n, t, self.model, self.tokenizer)
         elif "gpt-4" in args.model or "gpt-3.5" in args.model or "davinci" in args.model:
-            response = decoder_for_openai(args, input, max_length, n, t, self.model)
+            response = decoder_for_openai(args, input_ids, max_length, n, t, self.model)
         elif args.model in ["rnd"]:
             response = self.model(['A', 'B', 'C', 'D'])
         elif args.model.startswith("ot-"):
+            requests = []
             response = []
-            for i in input:
-                output = ot.run(
+            for i in input_ids: # batch
+                # output = ot.run(
+                requests.append(
                     llm.chat(
                         [content.Message(
                           role=content.PredefinedRole.USER,
@@ -440,8 +446,10 @@ class Decoder():
                         )],
                         max_tokens=max_length, temperature=t),
                 )
+                # response.append(output)
                 # print(output)
-                response.append(output)
+            output = ot.run(ot.parallel(*requests, chunk_size=10))
+            response.extend(output)
             self.model.save_cache(overwrite=True)
         return response
 
@@ -481,6 +489,55 @@ def swap_words(sentence, probability):
 
     return "\n".join(" ".join(line.split()) for line in "".join(words).splitlines())
 
+def move_whitespaces(input_string, fraction):
+    num_whitespaces = input_string.count(' ')
+    num_moves = int(num_whitespaces * fraction)
+    str_list = list(input_string)
+
+    # Randomly choose whitespaces to move
+    whitespace_indices = [i for i, c in enumerate(str_list) if c == ' ']
+    move_indices = random.sample(whitespace_indices, num_moves)
+
+    # For each whitespace to move, choose a new random position that's not in the list of whitespace indices
+    new_positions = []
+    for _ in move_indices:
+        while True:
+            new_position = random.choice(range(len(str_list)))
+            if new_position not in whitespace_indices:
+                new_positions.append(new_position)
+                break
+
+    # Remove the whitespaces at the move indices
+    for i in sorted(move_indices, reverse=True):
+        del str_list[i]
+    # Insert a whitespace at each new position
+    for i in new_positions:
+        str_list.insert(i, ' ')
+
+    return ''.join(str_list), num_moves
+
+def swap_whitespaces(input_string, fraction):
+    num_whitespaces = input_string.count(' ')
+    num_swaps = int(num_whitespaces * fraction)
+    # print(f"{num_swaps=} of {num_whitespaces=} in {len(input_string)} chars")
+
+    str_list = list(input_string)
+    whitespace_indices = [i for i, c in enumerate(str_list) if c == ' ']
+
+    # choose whitespaces to swap
+    swap_indices = random.sample(whitespace_indices, num_swaps)
+    non_whitespace_indices = [i for i, c in enumerate(str_list) if c != ' ']
+
+    # For each whitespace to swap, choose a random non-whitespace character and swap them
+    for i in swap_indices:
+        j = random.choice(non_whitespace_indices)
+        # print(f"swapping {i=} {j=}")
+        # print(f"before: {''.join(str_list)}")
+        str_list[i], str_list[j] = str_list[j], str_list[i]
+        # print(f"after : {''.join(str_list)}")
+        non_whitespace_indices.remove(j)
+
+    return ''.join(str_list), num_swaps
 
 def data_reader(args):
 
@@ -529,9 +586,17 @@ def data_reader(args):
                     elif args.scramble == "empty":
                         evidence = ""
 
+                    if args.random_str:
+                        # generate a radom words in a string, same length as evidence
+                        evidence = ''.join(random.choices(string.ascii_lowercase + string.digits + string.punctuation + " ", k=len(evidence)))
+
                     if args.word_swap != 0:
                         # swap N% of words
                         evidence = swap_words(evidence, args.word_swap)
+
+                    if args.whitespace_move != 0:
+                        # move N% of whitespaces
+                        evidence, _ = move_whitespaces(evidence, args.whitespace_move)
 
                     input_prompt.append("Question: " + json.loads(line)["question"] +
                                         "\nChoices: " + "".join(["(" + ["A", "B", "C", "D"][i] + ")" + json.loads(line)["choice"][i] + " " for i in range(len(json.loads(line)["choice"]))]).strip() +
@@ -646,7 +711,7 @@ def setup_data_loader(args):
 
     dataset = MyDataset(args)
 
-    if len(dataset[0]) == 3:
+    if len(dataset[0]) == 3: # scrambled_qa
         dataloader = torch.utils.data.DataLoader(dataset,
                     shuffle=False,
                     batch_size=args.batch_size,

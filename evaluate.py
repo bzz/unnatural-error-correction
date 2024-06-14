@@ -34,6 +34,8 @@ def main():
     print("scramble: " + args.scramble)
     if args.word_swap > 0:
         print(f"word_swap: {args.word_swap*100}%")
+    if args.whitespace_move > 0:
+        print(f"whitespace_move: {args.whitespace_move*100}%")
     print_now()
 
     if args.method == "few-shot-cot":
@@ -110,7 +112,7 @@ def main():
 
             for i, data in enumerate(tqdm(dataloader)):
                 
-                if len(data) == 3:
+                if len(data) == 3: # scrambled_qa
                     x, y, choice = data
                 else:
                     x, y = data
@@ -171,7 +173,7 @@ def main():
                     wp.write(output_json + "\n")
 
                 for j in range(len(x)):
-                    if args.verbose or i % args.print_every_k == 0:
+                    if args.verbose or (i*args.batch_size+j) % args.print_every_k == 0:
                         print("*"*50)
                         print("No.{}".format(i * args.batch_size + j + 1))
                         print("#Input:\n" + x[j])
@@ -207,7 +209,9 @@ def parse_arguments():
     )
 
     parser.add_argument("--word_swap", type=float, default=0.0)
+    parser.add_argument("--whitespace_move", type=float, default=0.0)
 
+    parser.add_argument("--random_str", action="store_true")
     parser.add_argument("--api_key", type=str, default=None)
 
     parser.add_argument(
