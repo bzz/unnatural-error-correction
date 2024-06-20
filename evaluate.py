@@ -36,6 +36,8 @@ def main():
         print(f"word_swap: {args.word_swap*100}%")
     if args.whitespace_move > 0:
         print(f"whitespace_move: {args.whitespace_move*100}%")
+    if args.chars_drop > 0:
+        print(f"chars_drop: {args.chars_drop*100}%")
     print_now()
 
     if args.method == "few-shot-cot":
@@ -196,6 +198,12 @@ def main():
             print(f"Accuracy : {accuracy:.1f} ({lower:.2f}..{upper:.2f})")
             print("Accuracy2: {:.1f} ({:.2f}..{:.2f})".format(*bootstrap_ci(correct_list)))
 
+            if args.model.startswith("ot-"):
+                # from onetwo.core import caching
+                # handler = caching.SimpleFunctionCache = getattr(decoder.model, '_cache_handler')
+                from pprint import pprint
+                pprint(decoder.model._counters)
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -210,6 +218,7 @@ def parse_arguments():
 
     parser.add_argument("--word_swap", type=float, default=0.0)
     parser.add_argument("--whitespace_move", type=float, default=0.0)
+    parser.add_argument("--chars_drop", type=float, default=0.0)
 
     parser.add_argument("--random_str", action="store_true")
     parser.add_argument("--api_key", type=str, default=None)

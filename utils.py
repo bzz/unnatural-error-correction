@@ -398,7 +398,8 @@ class Decoder():
             # whitespace = f'_whitespace_{int(args.whitespace*100)}%' if args.whitespace != 0 else ""
             whitespace = f'_whitespace-move_{int(args.whitespace_move*100)}%' if args.whitespace_move != 0 else ""
             rnd = f'_rnd-str' if args.random_str != 0 else ""
-            extras = f"{swap}{whitespace}{rnd}"
+            drop = f'_drop-chars_{int(args.chars_drop*100)}%' if args.chars_drop != 0 else ""
+            extras = f"{swap}{whitespace}{rnd}{drop}"
             cache_filename = f"./{model_name}_{args.scramble}{extras}.json"
 
             # Create the backend that we selected above and provide a cache filename.
@@ -539,6 +540,14 @@ def swap_whitespaces(input_string, fraction):
 
     return ''.join(str_list), num_swaps
 
+def drop_chars(evidence, chars_drop):
+    # drop N% of characters from the evidence
+    num_chars_to_drop = round(len(evidence) * chars_drop)
+    indices_to_drop = random.sample(range(len(evidence)), num_chars_to_drop)
+    new_evidence = [char for i, char in enumerate(evidence) if i not in indices_to_drop]
+    return ''.join(new_evidence)
+
+
 def data_reader(args):
 
     questions = []
@@ -597,6 +606,10 @@ def data_reader(args):
                     if args.whitespace_move != 0:
                         # move N% of whitespaces
                         evidence, _ = move_whitespaces(evidence, args.whitespace_move)
+
+                    if args.chars_drop != 0:
+                        # drop N% of characters
+                        evidence = drop_chars(evidence, args.chars_drop)
 
                     input_prompt.append("Question: " + json.loads(line)["question"] +
                                         "\nChoices: " + "".join(["(" + ["A", "B", "C", "D"][i] + ")" + json.loads(line)["choice"][i] + " " for i in range(len(json.loads(line)["choice"]))]).strip() +
